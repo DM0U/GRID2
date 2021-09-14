@@ -10,7 +10,7 @@ import numpy as np
 
 
 #  数据读入
-with h5py.File('data/deposition.h5') as ipt_deposition:
+with h5py.File('data/deposition.h5', 'r') as ipt_deposition:
     Response_Matrix = ipt_deposition['Matrix'][...]
 
 
