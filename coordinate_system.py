@@ -2,7 +2,7 @@
 
 import h5py
 import numpy as np
-from numpy import sin, cos, arcsin, arccos
+from numpy import sin, cos, arcsin, arccos, arctan
 
 ###############################################################################
 # 初始化全局变量
@@ -14,7 +14,10 @@ Cube_coor_frame_x = None
 Cube_coor_frame_y = None
 Cube_coor_frame_z = None
 
+###############################################################################
+# 用户接口
 
+# 事件初始化
 def event_init(event, path=None):
     '''
     单次测量事件的初始化，并记录初始化的事件名称
@@ -61,6 +64,36 @@ def event_init(event, path=None):
     Cube_info = np.array(Cube_info)
     coor_init()
 
+# 功能实现模块
+# 包括相对角度的计算，被遮挡的计算，延时的计算等
+def get_angular_coor_in_cubes(dir_from_earth_cart):
+    '''
+    输入星源相对地球的方向单位笛卡尔矢量，
+    计算其相对各个卫星的入射方向（顶角与旋转角）
+        input:
+            dir_from_earth_cart
+                从地球出发指向入射方向的笛卡尔单位矢量
+        output:
+            Theta, Phi
+                相对各个卫星的入射顶角与旋转角
+    '''
+    global Cube_coor_frame_x, Cube_coor_frame_y, Cube_coor_frame_z
+
+    dir_from_earth = dir_from_earth_cart
+
+    # 入射的顶角
+    Theta = arccos((dir_from_earth * Cube_coor_frame_z).sum(axis=1))
+
+    # 若sin(theta) = 0, 即theta = 0或pi，phi不重要，只需要注意除以0报错
+    Sin_theta = sin(Theta)
+    Sin_theta[Sin_theta == 0] = 1 
+    # 判断y分量正负性以决定phi的范围
+    Comp_y = ((dir_from_earth * Cube_coor_frame_y).sum(axis=1) < 0)
+    
+    Phi = arccos((dir_from_earth * Cube_coor_frame_x).sum(axis=1) / Sin_theta)
+    Phi[Comp_y] = 2 * np.pi - Phi[Comp_y]
+
+    return Theta, Phi
 
 
 ###############################################################################
