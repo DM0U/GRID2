@@ -3,13 +3,18 @@
 import h5py
 import numpy as np
 from numpy import sin, cos, arccos
-
 import response_matrix as rm
 
+###############################################################################
+# 类中需要调用的常量
 
 Radius_Earth = 6400    # 地球半径，单位km
 c0 = 299792458 / 1000  # 真空光速，单位km/s
 
+
+
+###############################################################################
+# cube_system类，负责所有卫星相关参数
 
 class cube_system:
     '''
@@ -272,6 +277,49 @@ class cube_system:
 
         return Resp
 
+
+
+###############################################################################
+# 辅助的坐标转换函数
+
+def spec_to_cart(theta, phi):
+    '''
+    用于快速实现 球坐标系 至 笛卡尔坐标系 的转换
+        input:
+            theta
+                顶角，float 或 np.array
+            phi
+                旋转角，float 或 np.array
+        output:
+            dir_cart
+                笛卡尔坐标系中的归一化矢量
+                一维或二维numpy数组，最后一维对应x,y,z
+    '''
+    cart = np.array([sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)])
+
+    if len(cart.shape) == 2:
+        cart = cart.swapaxes(0, 1)
+
+    return cart
+
+def gcrs_to_cart(ra, dec):
+    '''
+    用于快速实现 球坐标系 至 笛卡尔坐标系 的转换
+        input:
+            ra
+                赤经，float 或 np.array
+            dec
+                赤纬，float 或 np.array
+        output:
+            dir_cart
+                笛卡尔坐标系中的归一化矢量
+                一维或二维numpy数组，最后一维对应x,y,z
+    '''
+
+    phi = ra
+    theta = np.pi / 2 - dec
+
+    return spec_to_cart(theta, phi)
 
 
 
