@@ -324,7 +324,9 @@ class gamma_event:
             if self.Id_cube_time_delta[cube,0] < self.Id_cube_time_delta[cube,1]:
                 eng_gamma = self.Eng_out[cube,:,:,\
                     self.Id_cube_time_delta[cube,0]:self.Id_cube_time_delta[cube,1]]
-                self.Eng_out_gamma_all[cube] = \
-                    eng_gamma.sum(axis=-1) - eng_gamma.mean(axis=-1)
+
+                self.Eng_out_gamma_all[cube] = eng_gamma.sum(axis=-1) - \
+                    self.Eng_out[cube].mean(axis=-1) * \
+                        (self.Id_cube_time_delta[cube,1] - self.Id_cube_time_delta[cube,0])
             else:
                 self.Eng_out_gamma_all[cube] = 0
