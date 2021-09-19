@@ -280,6 +280,8 @@ class gamma_event:
 
         # 信号的始末时刻以最高质量的探测器上的最低能道为依据
         Eng_cube_evidence = Eng_dn[np.arange(7), self.Cube_witness]
+        # TODO:DEL
+        self.Eng_cube_evidence = Eng_cube_evidence
         
 
         # 每个卫星对应的gamma暴始末时刻，为-1,-1说明无法检测到信号
@@ -322,11 +324,15 @@ class gamma_event:
         self.Eng_out_gamma_all = np.empty((7, 4, 100))
         for cube in range(7):
             if self.Id_cube_time_delta[cube,0] < self.Id_cube_time_delta[cube,1]:
+
+                _delta = self.Id_cube_time_delta[cube,1] - self.Id_cube_time_delta[cube,0]
                 eng_gamma = self.Eng_out[cube,:,:,\
                     self.Id_cube_time_delta[cube,0]:self.Id_cube_time_delta[cube,1]]
 
-                self.Eng_out_gamma_all[cube] = eng_gamma.sum(axis=-1) - \
-                    self.Eng_out[cube].mean(axis=-1) * \
-                        (self.Id_cube_time_delta[cube,1] - self.Id_cube_time_delta[cube,0])
+                self.Eng_out_gamma_all[cube] = eng_gamma.sum(axis=-1) / _delta - \
+                    self.Eng_out[cube].mean(axis=-1)
+                        
+                self.Eng_out_gamma_all[cube] = np.maximum(self.Eng_out_gamma_all[cube] ,0)
             else:
                 self.Eng_out_gamma_all[cube] = 0
+        
