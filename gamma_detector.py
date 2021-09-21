@@ -114,15 +114,15 @@ class gamma_event:
 
         # 数据读入
         self.__read_event__(file_path, event)
-        print(1)
+        
 
         # 时间分析
         self.__analyse_event_time__()
-        print(2)
+        
 
         # 输出能道分析
         self.__analyse_event_eng__()
-        print(3)
+        
 
 
 
@@ -200,21 +200,11 @@ class gamma_event:
                                 sum(axis=1) - 1
                     # Id_eng[Id_eng == -1] = Ebounds.size - 1
 
-
-                    # 此处 for 循环更有效率，详见下文注释
-                    '''
-                    虽然用for循环，但下面的广播规则更慢
-                    原写法针对光子计数，改为能量计数无本质区别
-                        对比运行结果为4.3s对0.5s（train_2,事件1000,cube=0,det=0）
-                        Id_time_eng = np.array([Id_time, Id_eng]).swapaxes(0, 1)
-                        Id_count = (np.expand_dims(Id_time_eng, 1) == Id_time_eng). \
-                                    prod(axis=2).sum(axis=1)
-
-                        Counts[0,0][Id_time, Id_eng] += Id_count
-                    '''
-                    for i_doc in range(Id_time.size):
-                        self.Eng_out[cube, det, Id_time[i_doc], Id_eng[i_doc]] += \
-                            light_doc[i_doc][1]
+                    # 对能量计数并储存到Eng_out中
+                    # for i_doc in range(Id_time.size):
+                    #     self.Eng_out[cube, det, Id_time[i_doc], Id_eng[i_doc]] += \
+                    #         light_doc[i_doc][1]
+                    np.add.at(self.Eng_out[cube, det], (Id_time, Id_eng), light_doc[:,1])
 
             # 使得时间值从 0 开始，方便阅读   
             self.Time -= self.Time[0] 
@@ -280,8 +270,6 @@ class gamma_event:
 
         # 信号的始末时刻以最高质量的探测器上的最低能道为依据
         Eng_cube_evidence = Eng_dn[np.arange(7), self.Cube_witness]
-        # TODO:DEL
-        self.Eng_cube_evidence = Eng_cube_evidence
         
 
         # 每个卫星对应的gamma暴始末时刻，为-1,-1说明无法检测到信号
@@ -324,15 +312,11 @@ class gamma_event:
         self.Eng_out_gamma_all = np.empty((7, 4, 100))
         for cube in range(7):
             if self.Id_cube_time_delta[cube,0] < self.Id_cube_time_delta[cube,1]:
-
-                _delta = self.Id_cube_time_delta[cube,1] - self.Id_cube_time_delta[cube,0]
                 eng_gamma = self.Eng_out[cube,:,:,\
                     self.Id_cube_time_delta[cube,0]:self.Id_cube_time_delta[cube,1]]
 
-                self.Eng_out_gamma_all[cube] = eng_gamma.sum(axis=-1) / _delta - \
-                    self.Eng_out[cube].mean(axis=-1)
-                        
-                self.Eng_out_gamma_all[cube] = np.maximum(self.Eng_out_gamma_all[cube] ,0)
+                self.Eng_out_gamma_all[cube] = eng_gamma.sum(axis=-1) - \
+                    self.Eng_out[cube].mean(axis=-1) * \
+                        (self.Id_cube_time_delta[cube,1] - self.Id_cube_time_delta[cube,0])
             else:
                 self.Eng_out_gamma_all[cube] = 0
-        
