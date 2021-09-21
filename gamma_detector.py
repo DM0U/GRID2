@@ -251,6 +251,19 @@ class gamma_event:
         Eng_dn = dn.denoise_curve_by_fft(self.Eng_out[:,:,0], 40)
         Eng_dn -= np.expand_dims(Eng_dn.mean(axis=-1), 2)
 
+        # Eng_dn 的处理，需要指出，当信号过弱时可能会出现最大峰在边缘的情况
+        # 由于采用的判断依据是最大峰两边为 0 的位置，
+        #   为了保证算法的可行性需要保证最大峰两侧存在0位置
+        # 为了运行效率，此处采用暴力将始末时刻的数值设为 0 的做法
+        '''
+        实际上应该截取的始末时刻，但该方法运算速度慢
+            time_size = Eng_dn.shape[-1]
+            Id_inf = np.argmax((Eng_dn < 0), axis=-1)
+            Id_sup = time_size - 1 - np.argmax((Eng_dn < 0)[:,:,::-1], axis=-1)
+        '''
+        Eng_dn[:,:,0] = 0
+        Eng_dn[:,:,-1] = 0
+
         # gamma信号质量的判据，采用 (max / sigma) 为依据
         id_max = Eng_dn.argmax(axis=-1)
         Eng_max = Eng_dn.max(axis=-1)
@@ -282,7 +295,7 @@ class gamma_event:
                 self.Id_cube_time_delta[cube] = -1, -1
                 self.Id_happen[cube] = -1
             else:
-                Id_filt = np.argwhere(Eng_cube_evidence[cube] < 0).squeeze()
+                Id_filt = np.argwhere(Eng_cube_evidence[cube] <= 0).squeeze()
                 self.Id_cube_time_delta[cube] = \
                     Id_filt[Id_filt < self.Id_happen[cube]].max(),\
                     Id_filt[Id_filt > self.Id_happen[cube]].min()
