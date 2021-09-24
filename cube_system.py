@@ -22,8 +22,12 @@ class cube_system:
         对外函数接口
             __init__(self, file_path, event)
                 卫星系统初始化
-            def cal_time_delay(self, dir_from_earth_cart)
+            cal_time_delay(self, dir_from_earth_cart)
                 计算入射方向gamma相对地心的延时
+            get_response(self, dir_from_earth_cart)
+                输入入射方向，给出七个卫星对应相应矩阵
+            check_not_blocked(self, dir_from_earth_cart)
+                输入入射方向，计算各个卫星的是否被遮挡(也体现在响应矩阵中)
 
         内部变量(原则上所有内部变量都不应该也不需要被读取)        
             self.Cube_info
@@ -304,7 +308,7 @@ def spec_to_cart(theta, phi):
 
 def gcrs_to_cart(ra, dec):
     '''
-    用于快速实现 球坐标系 至 笛卡尔坐标系 的转换
+    用于快速实现 天球坐标系 至 笛卡尔坐标系 的转换
         input:
             ra
                 赤经，float 或 np.array
@@ -316,12 +320,29 @@ def gcrs_to_cart(ra, dec):
                 一维或二维numpy数组，最后一维对应x,y,z
     '''
 
-    phi = ra
-    theta = np.pi / 2 - dec
+    theta, phi = gcrs_to_spec(ra, dec)
 
     return spec_to_cart(theta, phi)
 
+def gcrs_to_spec(ra, dec):
+    '''
+    用于快速实现 天球坐标系 至 球坐标系 的转换
+        input:
+            ra
+                赤经，float 或 np.array
+            dec
+                赤纬，float 或 np.array
+        output:
+            theta
+                顶角，float 或 np.array
+            phi
+                旋转角，float 或 np.array
+    '''
 
+    theta = np.pi / 2 - dec
+    phi = ra
+
+    return theta, phi
 
 
 
