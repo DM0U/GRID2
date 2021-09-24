@@ -147,71 +147,71 @@ class gamma_event:
         global time_interval, Ebounds
 
         # 事件的读入
+        # 需要一次性读完，否则大量的io操作会消耗过多时间
         with h5py.File(file_path, 'r') as source:
 
-            # 对应同一个gamma事件，采用同一个时间段进行衡量
-            # 计算共同的时间间隔
-            Time_sup = np.empty((7, 4))
-            Time_inf = np.empty((7, 4))
-            # 此处的 for 没有替换方法，但是几乎不对运行时长造成影响
+            light_doc = {}
             for cube in range(7):
+                light_doc[cube] = {}
                 for det in range(4):
-                    Time_sup[cube, det] = source[event]['response_E_T'] \
-                                                ['D'+str(cube)][str(det)][:,0].max()
-                    Time_inf[cube, det] = source[event]['response_E_T'] \
-                                                ['D'+str(cube)][str(det)][:,0].min()
-            # 每个时刻t的计数的范围对应t~t+dt
-            time_sup = np.floor(Time_sup.min() - time_interval)
-            time_inf = np.ceil(Time_inf.max())
+                    light_doc[cube][det] = source[event]['response_E_T'] \
+                                                ['D' + str(cube)][str(det)][...]
 
 
-            # 得出事件时间与时间边界
-            self.Time = np.arange(time_inf, time_sup, time_interval)
-            time_num = self.Time.size    # 不直接计算，防止float的精度错误
-            Tbounds = np.array([*(self.Time), self.Time[-1] + time_interval])
-            
-
-            # 广播规则的预备，对应时间上下限的准备
-            Inf = np.empty((time_num, 100, 2))
-            Inf[:,:,0] = np.expand_dims(self.Time ,1)
-            Inf[:,:,1] = np.expand_dims(Ebounds[:100], 0)
-
-            Sup = np.empty((time_num, 100, 2))
-            Sup[:,:,0] = np.expand_dims(self.Time + time_interval ,1)
-            Sup[:,:,1] = np.expand_dims(Ebounds[1:], 0)
+        # 对应同一个gamma事件，采用同一个时间段进行衡量
+        # 计算共同的时间间隔
+        Time_sup = np.empty((7, 4))
+        Time_inf = np.empty((7, 4))
+        # 此处的 for 没有替换方法，但是几乎不对运行时长造成影响
+        for cube in range(7):
+            for det in range(4):
+                Time_sup[cube, det] = light_doc[cube][det][:,0].max()
+                Time_inf[cube, det] = light_doc[cube][det][:,0].min()
+        # 每个时刻t的计数的范围对应t~t+dt
+        time_sup = np.floor(Time_sup.min() - time_interval)
+        time_inf = np.ceil(Time_inf.max())
 
 
-            # 光子计数模块
-            # 初始索引顺序：cube, det, time, Eng
-            # time, Eng多一个长度用于存储超界的记录
-            self.Eng_out = np.zeros((7, 4, time_num + 1, 100 + 1))
-            for cube in range(7):
-                for det in range(4):
-                    # ！！！务必使用[...]方法读入全部信息，
-                    #       否则之后每次单光子能量累加会大量浪费时间（至少20倍）
-                    light_doc = source[event]['response_E_T'] \
-                                      ['D' + str(cube)][str(det)][...]
+        # 得出事件时间与时间边界
+        self.Time = np.arange(time_inf, time_sup, time_interval)
+        time_num = self.Time.size    # 不直接计算，防止float的精度错误
+        Tbounds = np.array([*(self.Time), self.Time[-1] + time_interval])
+        
 
-                    # id = -1 , 对应尾部废弃项
-                    Id_time = (np.expand_dims(light_doc[:, 0], 1) >= Tbounds). \
-                                sum(axis=1) - 1
-                    # Id_time[Id_time == -1] = Tbounds.size - 1
-                    Id_eng = (np.expand_dims(light_doc[:, 1], 1) >= Ebounds). \
-                                sum(axis=1) - 1
-                    # Id_eng[Id_eng == -1] = Ebounds.size - 1
+        # 广播规则的预备，对应时间上下限的准备
+        Inf = np.empty((time_num, 100, 2))
+        Inf[:,:,0] = np.expand_dims(self.Time ,1)
+        Inf[:,:,1] = np.expand_dims(Ebounds[:100], 0)
 
-                    # 对能量计数并储存到Eng_out中
-                    # for i_doc in range(Id_time.size):
-                    #     self.Eng_out[cube, det, Id_time[i_doc], Id_eng[i_doc]] += \
-                    #         light_doc[i_doc][1]
-                    np.add.at(self.Eng_out[cube, det], (Id_time, Id_eng), light_doc[:,1])
+        Sup = np.empty((time_num, 100, 2))
+        Sup[:,:,0] = np.expand_dims(self.Time + time_interval ,1)
+        Sup[:,:,1] = np.expand_dims(Ebounds[1:], 0)
 
-            # 使得时间值从 0 开始，方便阅读   
-            self.Time -= self.Time[0] 
 
-            # 最终索引顺序：cube, det, eng, time
-            # 去除范围外的部分（对应eng, time的最后一项）
-            self.Eng_out = self.Eng_out[:, :, :-1, :-1].swapaxes(2, 3)
+        # 光子计数模块
+        # 初始索引顺序：cube, det, time, Eng
+        # time, Eng多一个长度用于存储超界的记录
+        self.Eng_out = np.zeros((7, 4, time_num + 1, 100 + 1))
+        for cube in range(7):
+            for det in range(4):
+                # id = -1 , 对应尾部废弃项
+                Id_time = (np.expand_dims(light_doc[cube][det][:, 0], 1)\
+                            >= Tbounds).sum(axis=1) - 1
+                # Id_time[Id_time == -1] = Tbounds.size - 1
+                Id_eng = (np.expand_dims(light_doc[cube][det][:, 1], 1)\
+                           >= Ebounds).sum(axis=1) - 1
+                # Id_eng[Id_eng == -1] = Ebounds.size - 1
+
+                # 对能量计数并储存到Eng_out中
+                np.add.at(self.Eng_out[cube, det], (Id_time, Id_eng), \
+                          light_doc[cube][det][:,1])
+
+        # 使得时间值从 0 开始，方便阅读   
+        self.Time -= self.Time[0] 
+
+        # 最终索引顺序：cube, det, eng, time
+        # 去除范围外的部分（对应eng, time的最后一项）
+        self.Eng_out = self.Eng_out[:, :, :-1, :-1].swapaxes(2, 3)
     
     def __analyse_event_time__(self):
         '''
