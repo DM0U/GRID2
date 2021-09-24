@@ -286,25 +286,42 @@ class cube_system:
 ###############################################################################
 # 辅助的坐标转换函数
 
-def spec_to_cart(theta, phi):
+def trans_coor(type_in, type_out, ra=0, dec=0, theta=0, phi=0, x=0, y=0, z=1):
     '''
-    用于快速实现 球坐标系 至 笛卡尔坐标系 的转换
-        input:
-            theta
-                顶角，float 或 np.array
-            phi
-                旋转角，float 或 np.array
-        output:
-            dir_cart
-                笛卡尔坐标系中的归一化矢量
-                一维或二维numpy数组，最后一维对应x,y,z
+    坐标矢量的转化函数
+    支持 笛卡尔坐标系，球坐标系，天球坐标系的互化
+        type_[in/out]:
+            'spec'
+                球坐标系，输入/输出对应theta/phi。
+            'cart'
+                笛卡尔坐标系。输入x,y,z(要求归一化)；
+                输出dir_cart笛卡尔坐标系中的归一化矢量，一维或二维numpy数组，
+                最后一维对应x,y,z
+            'gcrs'
+                天球坐标系，输入/输出对应ra/dec
+        input说明：
+            支持 float或一维numpy数组输入，具体形式见 type_[in/out]
+        error:
+            'No sush type'
+                type_[in/out]输入错误
+
     '''
-    cart = np.array([sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)])
+    if type_in == 'cart':
+        theta, phi = cart_to_spec(x, y, z)
+    elif type_in == 'gcrs':
+        theta, phi = gcrs_to_spec(ra, dec)
+    elif type_in != 'spec':
+        raise Exception('No sush type')
+    
+    if type_out == 'spec':
+        return theta, phi
+    elif type_out == 'cart':
+        return spec_to_cart(theta, phi)
+    elif type_out == 'gcrs':
+        return spec_to_gcrs(theta, phi)
+    else:
+        raise Exception('No sush type')
 
-    if len(cart.shape) == 2:
-        cart = cart.swapaxes(0, 1)
-
-    return cart
 
 def gcrs_to_cart(ra, dec):
     '''
@@ -344,8 +361,77 @@ def gcrs_to_spec(ra, dec):
 
     return theta, phi
 
+def cart_to_spec(x, y, z):
+    '''
+    用于快速实现 笛卡尔坐标系 至 球坐标系 的转换
+        input:
+            x, y, z
+                笛卡尔坐标系中的归一化矢量
+                float 或 np.array
+        output:
+            theta
+                顶角，float 或 np.array
+            phi
+                旋转角，float 或 np.array
+    '''
+    theta = arccos(z)
+
+    # 若 sin(theta) = 0,则phi的数值不再重要
+    # 采用加法语句保证对 numpy 数组及 float 均可运行
+    sin_theta = sin(theta)
+    sin_theta += (sin_theta == 0)
+
+    # y > 0, phi < pi; y > 0, phi > pi
+    # 采用加法语句保证对 numpy 数组及 float 均可运行    
+    phi = arccos(x / sin_theta)
+    phi += (2 * np.pi - 2 * phi) * (y < 0)
 
 
+    # 防止浮点数精度问题
+    theta = np.minimum(theta, np.pi)
+    phi = np.minimum(phi, 2 * np.pi)
+
+    return theta, phi
+
+def spec_to_gcrs(theta, phi):
+    '''
+    用于快速实现 球坐标系 至 天球坐标系 的转换
+        input:
+            theta
+                顶角，float 或 np.array
+            phi
+                旋转角，float 或 np.array
+        output:
+            ra
+                赤经，float 或 np.array
+            dec
+                赤纬，float 或 np.array
+    '''
+
+    dec = np.pi / 2 - theta
+    ra = phi
+
+    return ra, dec
+
+def spec_to_cart(theta, phi):
+    '''
+    用于快速实现 球坐标系 至 笛卡尔坐标系 的转换
+        input:
+            theta
+                顶角，float 或 np.array
+            phi
+                旋转角，float 或 np.array
+        output:
+            dir_cart
+                笛卡尔坐标系中的归一化矢量
+                一维或二维numpy数组，最后一维对应x,y,z
+    '''
+    cart = np.array([sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)])
+
+    if len(cart.shape) == 2:
+        cart = cart.swapaxes(0, 1)
+
+    return cart
 
 
 
